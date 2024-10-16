@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>ZimXpress</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet"/>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.paynow.co.zw/interface/api"></script>
+    <script>
+        (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+          key: "AIzaSyDnAbGkpEiylbTArDxX8hGeyoF6kBZEyeI",
+          v: "weekly",
+        });
+    </script>
+    <style>
+        body {
+            background-color: #f0f0f0;
+            font-family: 'Roboto', sans-serif;
+        }
+        .back-button {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            padding: 5px 10px;
+            background-color: #f97316;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        .hidden {
+            display: none;
+        }
+        .gradient-bg {
+            background: linear-gradient(to bottom, #f97316, #fb923c);
+        }
+        .dark-mode {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+        .dark-mode .bg-white {
+            background-color: #2d3748;
+        }
+        .dark-mode .text-black {
+            color: #e2e8f0;
+        }
+        .bottom-app-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #f35d21;
+            padding: 16px;
+            display: flex;
+            justify-content: space-around;
+            z-index: 1000;
+        }
+        .bottom-app-bar .tab {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            cursor: pointer;
+        }
+        .bottom-app-bar .tab .icon {
+            font-size: 24px;
+            color: #FFFFFF;
+        }
+        .bottom-app-bar .tab .label {
+            font-size: 16px;
+            color: #FFFFFF;
+        }
+        .bottom-app-bar .tab.active {
+            background-color: #f4a803;
+        }
+    </style>
+    <script>
+        function selectTab(tabName) {
+            const tabs = document.querySelectorAll('.bottom-app-bar .tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            switch(tabName) {
+                case 'home':
+                    navigateTo('shopper-home');
+                    break;
+                case 'search':
+                    navigateTo('search');
+                    break;
+                case 'cart':
+                    navigateTo('cart');
+                    break;
+                case 'profile':
+                    navigateTo('user-profile');
+                    break;
+                case 'product':
+                    navigateTo('product-screen');
+                    break;
+            }
+        }
+    </script>
+</head>
+<body class="flex justify-center items-center min-h-screen bg-gray-100">
+<div id="app-container" class="w-full max-w-md h-screen bg-white overflow-hidden relative">
+    <div class="back-button" onclick="goBack()">
+        <i class="fas fa-arrow-left"></i> Back
+    </div>
+    <!-- Home Screen -->
+    <div id="home-screen" class="w-full h-full gradient-bg flex flex-col justify-center items-center text-white p-4">
+        <div class="bg-white rounded-full p-4 mb-4">
+            <i class="fas fa-tag text-6xl text-orange-500"></i>
+        </div>
+        <h1 class="text-4xl font-bold mb-8">ZimXpress</h1>
+        <button onclick="showRoleDialog('login')" class="w-full bg-red-600 text-white py-2 rounded-full mb-4 font-bold">LOG IN</button>
+        <button onclick="showRoleDialog('signup')" class="w-full bg-red-600 text-white py-2 rounded-full mb-4 font-bold">SIGN UP</button>
+        <p class="mb-4">or</p>
+        <div class="flex space-x-4">
+            <i class="fab fa-facebook text-3xl" onclick="showRoleDialog('login')"></i>
+            <i class="fab fa-apple text-3xl" onclick="showRoleDialog('login')"></i>
+        </div>
+    </div>
+    <!-- Shopper Home Screen -->
+    <div id="shopper-home-screen" class="w-full h-full bg-white p-4 hidden">
+        <h2 class="text-2xl font-bold mb-4">Shopper Home</h2>
+        <label for="search-input"></label><input type="text" id="search-input" placeholder="Search products..." class="w-full p-2 border rounded mb-4">
+        <div id="product-list" class="mb-4"></div>
+
+        <div class="container">
+            <!-- Recommendation Section -->
+            <div class="card">
+                <!-- Add recommendation content here -->
+            </div>
+
+            <!-- Product Details Section -->
+            <div class="card">
+                <!-- Add product details content here -->
+            </div>
+        </div>
+
+        <div class="bottom-app-bar">
+            <div class="tab" onclick="selectTab('home')">
+                <div class="icon"><i class="fas fa-home"></i></div>
+                <div class="label">Home</div>
+            </div>
+            <div class="tab" onclick="selectTab('search-input')">
+                <div class="icon"><i class="fas fa-search"></i></div>
+                <div class="label">Search</div>
+            </div>
+            <div class="tab" onclick="selectTab('cart')">
+                <div class="icon"><i class="fas fa-shopping-cart"></i></div>
+                <div class="label">Cart</div>
+            </div>
+            <div class="tab" onclick="selectTab('profile')">
+                <div class="icon"><i class="fas fa-user"></i></div>
+                <div class="label">Profile</div>
+            </div>
+        </div>
+    </div>
+    <!-- Shop Home Screen -->
+    <div id="shop-home-screen" class="w-full h-full bg-white p-4 hidden">
+        <h2 class="text-2xl font-bold mb-4">Shop Home</h2>
+
+        <div class="bottom-app-bar">
+            <div class="tab" onclick="selectTab('shop', 0)">
+                <div class="icon"><i class="material-icons">dashboard</i></div>
+                <div class="label">Dashboard</div>
+            </div>
+            <div class="tab" onclick="selectTab('shop', 1)">
+                <div class="icon"><i class="material-icons">add_box</i></div>
+                <div class="label">Add Product</div>
+            </div>
+            <div class="tab" onclick="selectTab('shop', 2)">
+                <div class="icon"><i class="material-icons">list</i></div>
+                <div class="label">Orders</div>
+            </div>
+            <div class="tab" onclick="selectTab('shop', 3)">
+                <div class="icon"><i class="material-icons">person</i></div>
+                <div class="label">Profile</div>
+            </div>
+        </div>
+    </div>
+    <!-- Post Product Screen -->
+    <div id="post-product-screen" class="w-full h-full bg-white p-4 hidden">
+        <h2 class="text-2xl font-bold mb-4">Post Product</h2>
+        <form id="post-product-form" onsubmit="event.preventDefault(); addProduct();">
+            <label for="product-name"></label><input type="text" id="product-name" placeholder="Product Name" class="w-full mb-2 p-2 border rounded" required>
+            <label for="product-price"></label><input type="number" id="product-price" placeholder="Price" step="0.01" class="w-full mb-2 p-2 border rounded" required>
+            <label for="product-description"></label><textarea id="product-description" placeholder="Description" class="w-full mb-2 p-2 border rounded" required></textarea>
+            <input type="file" id="product-image" accept="image/*" class="w-full mb-2 p-2 border rounded" required>
+            <button type="submit" class="w-full bg-orange-500 text-white py-2 rounded">Add Product</button>
+        </form>
+    </div>
+
+    <!-- Manage Orders Screen -->
+    <div id="manage-orders-screen" class="w-full h-full bg-white p-4 hidden">
+        <h2 class="text-2xl font-bold mb-4">Manage Orders</h2>
+        <div id="order-list"></div>
+    </div>
+
+    <!-- Cart Screen -->
+    <div id="cart-screen" class="w-full h-full bg-white p-4 hidden">
+        <h2 class="text-2xl font-bold mb-4">Cart</h2>
+        <div id="cart-items"></div>
+        <button onclick="initiatePaynowPayment()" class="fixed bottom-4 right-4 bg-orange-500 text-red p-2 rounded-full">
+            <i class="fas fa-credit-card text-orange-500"></i> Pay with Paynow
+        </button>
+    </div>
+
+    <script>
+        function addToCart(productId, productName, price) {
+    const cartItems = document.getElementById('cart-items');
+    const cartItem = `
+        <div class="cart-item" data-id="${productId}">
+            <img src="product-image-url" alt="${productName}" width="50" height="50">
+            <div class="details">
+                <h3>${productName}</h3>
+                <p class="price">$${price.toFixed(2)}</p>
+            </div>
+            <div class="quantity">
+                <button onclick="updateQuantity('${productId}', -1)">-</button>
+                <input type="text" value="1" readonly>
+                <button onclick="updateQuantity('${productId}', 1)">+</button>
+            </div>
+            <div class="remove" onclick="removeFromCart('${productId}')">
+                <i class="fas fa-trash"></i>
+            </div>
+        </div>
+    `;
+    cartItems.innerHTML += cartItem;
+    updateCartTotal();
+}
+
+function updateQuantity(productId, change) {
+    const cartItem = document.querySelector(`.cart-item[data-id="${productId}"]`);
+    const quantityInput = cartItem.querySelector('input');
+    let quantity = parseInt(quantityInput.value) + change;
+    quantity = Math.max(1, quantity);
+    quantityInput.value = quantity;
+    updateCartTotal();
+}
+
+function removeFromCart(productId) {
+    const cartItem = document.querySelector(`.cart-item[data-id="${productId}"]`);
+    cartItem.remove();
+    updateCartTotal();
+}
+
+function updateCartTotal() {
+    const cartItems = document.querySelectorAll('.cart-item');
+    let total = 0;
+    cartItems.forEach(item => {
+        const price = parseFloat(item.querySelector('.price').textContent.replace('$', ''));
+        const quantity = parseInt(item.querySelector('input').value);
+        total += price * quantity;
+    });
+    document.querySelector('.total span:last-child').textContent = `$${total.toFixed(2)}`;
+}
+
+        function initiatePaynowPayment() {
+            const paynow = new Paynow("19313", "9ddc5a12-e47a-408d-968c-f14cd8997537");
+            paynow.resultUrl = "";
+            paynow.returnUrl = "https://example.com/return?gateway=paynow";
+
+            let payment = paynow.createPayment("Invoice 35");
+
+            // Get the total amount from your cart or order
+            const totalAmount = calculateTotalAmount();
+
+            payment.add("Item", totalAmount);
+
+            paynow.send(payment).then(function(response) {
+                if (response.success) {
+                    // Payment initiated successfully
+                    window.location.href = response.redirectUrl;
+                } else {
+                    // Handle error
+                    console.error("Payment initiation failed:", response.error);
+                }
+            }).catch(function(error) {
+                console.error("Error:", error);
+            });
+        }
+
+        function calculateTotalAmount() {
+            // Implement your logic to calculate the total amount from the cart
+            // This is a placeholder function
+            return 100.00; // Replace with actual total
+        }
+    </script>
+    <!-- Order Tracking Screen -->
+    <div id="order-tracking-screen" class="w-full h-full bg-white p-4 hidden">
+        <h2 class="text-2xl font-bold mb-4">Track Your Order</h2>
+        <div id="map" style="height: 400px; width: 100%;"></div>
+        <p id="estimated-arrival-time" class="mt-4"></p>
+        <button onclick="startTracking()" class="w-full bg-orange-500 text-white py-2 rounded mt-4">Start Tracking</button>
+    </div>
+
+    <!-- Wishlist Screen -->
+    <div id="wishlist-screen" class="w-full h-full bg-white p-4 hidden">
+        <h2 class="text-2xl font-bold mb-4">My Wishlist</h2>
+        <div id="wishlist-items"></div>
+    </div>
+
+    <!-- Shop Dashboard Screen -->
+    <div id="shop-dashboard-screen" class="w-full h-full bg-white p-4 hidden">
+        <h2 class="text-2xl font-bold mb-4">Shop Dashboard</h2>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="bg-orange-100 p-4 rounded">
+                <h3 class="font-bold">Total Sales</h3>
+                <p id="total-sales">$0</p>
+            </div>
+            <div class="bg-orange-100 p-4 rounded">
+                <h3 class="font-bold">Pending Orders</h3>
+                <p id="pending-orders">0</p>
+            </div>
+        </div>
+        <h3 class="font-bold mt-4">Recent Orders</h3>
+        <div id="recent-orders" class="mt-2"></div>
+    </div>
+
+    <!-- Role Picker Modal -->
+    <div id="role-picker-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg">
+            <h2 class="text-xl font-bold mb-4">Choose your role</h2>
+            <button onclick="handleRoleSelection('Shopper')" class="w-full bg-green-500 text-white py-2 rounded ">Shopper</button>
+            <button onclick="handleRoleSelection('Shop')" class="w-full bg-green-500 text-white py-2 rounded ">Shop</button>
+            <button onclick="handleRoleSelection('Explore')" class="w-full bg-green-500 text-white py-2 rounded">Just want to explore</button>
+        </div>
+    </div>
+</div>
+<script>
+    // Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyAnwXt2p04nHuiKZ-AjIzyKu27kGNQAHH8",
+        authDomain: "untitled2-34030.firebaseapp.com",
+        projectId: "untitled2-34030",
+        storageBucket: "untitled2-34030.appspot.com",
+        messagingSenderId: "80778921605",
+        appId: "1:80778921605:android:7508cb05cf5a7fff424bec"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const firebaseAuth = firebase.auth();
+    const firebaseDb = firebase.firestore();
+
+    let currentOrderId;
+    let mapFunctions;
+
+    function showRoleDialog(action) {
+        document.getElementById('role-picker-modal').classList.remove('hidden');
+    }
+
+    function handleRoleSelection(role) {
+        hideRoleDialog();
+        if (role === 'Explore') {
+            navigateTo('shopper-home');
+        } else {
+            navigateTo(`${role.toLowerCase()}-login`);
+        }
+    }
+
+    function hideRoleDialog() {
+        document.getElementById('role-picker-modal').classList.add('hidden');
+    }
+
+    let pageHistory = [];
+      function navigateTo(screen) {
+          pageHistory.push(screen);
+          const screens = ['home-screen', 'shopper-login-screen', 'shop-login-screen', 'shopper-home-screen', 'shop-home-screen', 'post-product-screen', 'manage-orders-screen', 'cart-screen', 'order-tracking-screen', 'payment-screen', 'payment-result-screen', 'payment-return-screen', 'wishlist-screen', 'shop-dashboard-screen', 'product-screen'];
+          screens.forEach(s => {
+              const element = document.getElementById(s);
+              if (element) {
+                  element.classList.add('hidden');
+              }
+          });
+          const targetScreen = document.getElementById(`${screen}-screen`);
+          if (targetScreen) {
+              targetScreen.classList.remove('hidden');
+          }
+
+          // Load specific content when needed
+          if (screen === 'shopper-home') {
+              loadProducts();
+              createDefaultShop();
+              loadRecommendations();
+          } else if (screen === 'shop-home') {
+              loadShopDashboard();
+              loadShopProducts();
+              loadShopOrders();
+              loadShopReviews();
+              loadShopFeedback();
+          } else if (screen === 'payment') {
+              document.getElementById('payment-total').textContent = `${calculateTotalAmount().toFixed(2)}`;
+          } else if (screen === 'cart') {
+              loadCartItems();
+          } else if (screen === 'product') {
+              loadProductDetails();
+          } else if (screen === 'post-product') {
+              clearProductForm();
+              addProduct();
+          } else if (screen === 'manage-orders') {
+              loadOrderList();
+          } else if (screen === 'user-profile') {
+              loadUserProfile();
+          } else if (screen === 'order-tracking') {
+              initMap();
+          } else if (screen === 'wishlist') {
+              loadWishlist();
+          }
+      }
+    function goBack() {
+        if (pageHistory.length > 1) {
+            pageHistory.pop(); // Remove current page
+            const previousPage = pageHistory.pop(); // Get previous page
+            navigateTo(previousPage);
+        } else {
+            navigateTo('home');
+        }
+    }
+    function login(role) {
+        const email = document.getElementById(`${role.toLowerCase()}-login-email`).value;
+        const password = document.getElementById(`${role.toLowerCase()}-login-password`).value;
+
+        firebaseAuth.signInWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                const user = userCredential.user;
+                localStorage.setItem('userRole', role);
+                firebaseDb.collection('users').doc(user.uid).set({
+                    role: role,
+                    email: user.email
+                }, { merge: true });
+
+                if (role === 'Shopper') {
+                    navigateTo('shopper-home');
+                } else if (role === 'Shop') {
+                    navigateTo('shop-home');
+                }
+            })
+            .catch((error) => {
+                console.error("Error logging in:", error);
+                alert("Login failed. Please check your credentials.");
+            });
+    }          function signup() {
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+
+        firebaseAuth.createUserWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                const user = userCredential.user;
+                user.sendEmailVerification();
+                alert("Verification email sent. Please check your inbox.");
+            })
+            .catch((error) => {
+                console.error("Error signing up:", error);
+            });
+    }
+
+    function resetPassword() {
+        const email = prompt("Enter your email address:");
+        if (email) {
+            firebaseAuth.sendPasswordResetEmail(email)
+                .then(() => {
+                    alert("Password reset email sent. Please check your inbox.");
+                })
+                .catch((error) => {
+                    console.error("Error sending reset email:", error);
+                });
+        }
+    }
+
+    function getCurrentUserRole() {
+        const user = firebaseAuth.currentUser;
+        if (user) {
+            return localStorage.getItem('userRole') || 'Shopper';
+        }
+        return null;
+    }
+
+    function addToCart(productId) {
+        const userRole = getCurrentUserRole();
+        if (!userRole) {
+            const confirmLogin = confirm("You need to log in to add items to your cart. Would you like to log in now?");
+            if (confirmLogin) {
+                showRoleDialog();
+            }
+        } else {
+            firebaseDb.collection('cart').add({
+                userId: firebaseAuth.currentUser.uid,
+                productId: productId,
+                quantity: 1,
+                addedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                alert('Product added to cart!');
+            }).catch((error) => {
+                console.error("Error adding to cart: ", error);
+            });
+        }
+    }
+
+    function loadProducts() {
+        const productList = document.getElementById('product-list');
+        productList.innerHTML = '';
+        firebaseDb.collection('products').get().then((querySnapshot) => {
+            querySnapshot.forEach((doc) => {
+                const product = doc.data();
+                productList.innerHTML += `
+                    <div class="mb-4 p-2 border rounded">
+                        <h3 class="font-bold">${product.name}</h3>
+                        <p>${product.price}</p>
+                        <button onclick="addToCart('${doc.id}')" class="bg-orange-500 text-white py-1 px-2 rounded">Add to Cart</button>
+                    </div>
+                `;
+            });
+        });
+    }
+
+    function searchProducts() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const productList = document.getElementById('product-list');
+        productList.innerHTML = '';
+
+        firebaseDb.collection('products').get().then((querySnapshot) => {
+            querySnapshot.forEach((doc) => {
+                const product = doc.data();
+                if (product.name.toLowerCase().includes(searchTerm)) {
+                    productList.innerHTML += `
+                        <div class="mb-4 p-2 border rounded">
+                            <h3 class="font-bold">${product.name}</h3>
+                            <p>${product.price}</p>
+                            <button onclick="addToCart('${doc.id}')" class="bg-orange-500 text-white py-1 px-2 rounded">Add to Cart</button>
+                        </div>
+                    `;
+                }
+            });
+        });
+    }
+
+    document.getElementById('search-input').addEventListener('input', searchProducts);
+
+    function loadShopDashboard() {
+        const shopId = firebaseAuth.currentUser.uid;
+
+        firebaseDb.collection('orders')
+            .where('shopId', '==', shopId)
+            .where('status', '==', 'completed')
+            .get()
+            .then((querySnapshot) => {
+                let totalSales = 0;
+                querySnapshot.forEach((doc) => {
+                    totalSales += doc.data().total;
+                });
+                document.getElementById('total-sales').textContent = `${totalSales.toFixed(2)}`;
+            });
+
+        firebaseDb.collection('orders')
+            .where('shopId', '==', shopId)
+            .where('status', '==', 'pending')
+            .get()
+            .then((querySnapshot) => {
+                document.getElementById('pending-orders').textContent = querySnapshot.size;
+            });
+
+        firebaseDb.collection('orders')
+            .where('shopId', '==', shopId)
+            .orderBy('createdAt', 'desc')
+            .limit(5)
+            .get()
+            .then((querySnapshot) => {
+                const recentOrdersDiv = document.getElementById('recent-orders');
+                recentOrdersDiv.innerHTML = '';
+                querySnapshot.forEach((doc) => {
+                    const order = doc.data();
+                    recentOrdersDiv.innerHTML += `
+                        <div class="bg-gray-100 p-2 mb-2 rounded">
+                            <p>Order #${doc.id}</p>
+                            <p>Status: ${order.status}</p>
+                            <p>Total: ${order.total.toFixed(2)}</p>
+                        </div>
+                    `;
+                });
+            });
+    }
+
+    function loadCartItems() {
+        const cartItems = document.getElementById('cart-items');
+        cartItems.innerHTML = '';
+        firebaseDb.collection('cart').where('userId', '==', firebaseAuth.currentUser.uid).get().then((querySnapshot) => {
+            let total = 0;
+            querySnapshot.forEach((doc) => {
+                const item = doc.data();
+                total += item.price * item.quantity;
+                cartItems.innerHTML += `
+                    <div class="mb-4 p-2 border rounded">
+                        <h3 class="font-bold">${item.productName}</h3>
+                        <p>Quantity: ${item.quantity}</p>
+                        <p>Price: ${item.price.toFixed(2)}</p>
+                        <button onclick="removeFromCart('${doc.id}')" class="bg-red-500 text-white py-1 px-2 rounded mt-2">Remove</button>
+                    </div>
+                `;
+            });
+            cartItems.innerHTML += `
+                <div class="mt-4 p-2 bg-gray-100 rounded">
+                    <h3 class="font-bold">Total: ${total.toFixed(2)}</h3>
+                </div>
+            `;
+        });
+    }
+
+    function removeFromCart(cartItemId) {
+        firebaseDb.collection('cart').doc(cartItemId).delete()
+            .then(() => {
+                loadCartItems();
+            }).catch((error) => {
+                console.error("Error removing from cart: ", error);
+            });
+    }
+        async function initMap() {
+const { Map } = await google.maps.importLibrary("maps");
+
+const map = new Map(document.getElementById("map"), {
+center: { lat: -19.4517, lng: 29.8167 }, // Coordinates for Gweru, Zimbabwe
+zoom: 12
+});
+
+let marker;
+let orderRef;
+
+function updateMarkerPosition(position) {
+if (!marker) {
+  marker = new google.maps.Marker({
+    position: position,
+    map: map,
+    title: 'Order Location'
+  });
+} else {
+  marker.setPosition(position);
+}
+map.panTo(position);
+}
+
+function trackOrder(orderId) {
+orderRef = firebaseDb.collection('orders').doc(orderId);
+orderRef.onSnapshot((doc) => {
+  if (doc.exists) {
+    const data = doc.data();
+    if (data.currentLocation) {
+      updateMarkerPosition(data.currentLocation);
+      document.getElementById('estimated-arrival-time').textContent = `Estimated arrival: ${calculateEstimatedDeliveryTime(orderId)}`;
+    }
+  }
+});
+}
+
+return {
+trackOrder: trackOrder
+};
+}
+
+initMap();
+    function loadWishlist() {
+        const wishlistItems = document.getElementById('wishlist-items');
+        wishlistItems.innerHTML = '';
+        firebaseDb.collection('wishlist')
+            .where('userId', '==', firebaseAuth.currentUser.uid)
+            .get()
+            .then((querySnapshot) => {
+                querySnapshot.forEach((doc) => {
+                    const wishlistItem = doc.data();
+                    firebaseDb.collection('products').doc(wishlistItem.productId).get()
+                        .then((productDoc) => {
+                            const product = productDoc.data();
+                            wishlistItems.innerHTML += `
+                                <div class="mb-4 p-2 border rounded">
+                                    <h3 class="font-bold">${product.name}</h3>
+                                    <p>${product.price}</p>
+                                    <button onclick="addToCart('${productDoc.id}')" class="bg-orange-500 text-white py-1 px-2 rounded">Add to Cart</button>
+                                    <button onclick="removeFromWishlist('${doc.id}')" class="bg-red-500 text-white py-1 px-2 rounded ml-2">Remove</button>
+                                </div>
+                            `;
+                        });
+                });
+            });
+    }
+
+    function removeFromWishlist(wishlistItemId) {
+        firebaseDb.collection('wishlist').doc(wishlistItemId).delete()
+            .then(() => {
+                loadWishlist();
+            }).catch((error) => {
+                console.error("Error removing from wishlist: ", error);
+            });
+    }
+
+    function initiatePayment() {
+        // Implement Paynow.co.zw payment gateway integration here
+        console.log("Initiating payment...");
+        // After successful payment, update order status and navigate to order tracking
+        updateOrderStatus(currentOrderId, 'paid');
+        navigateTo('order-tracking');
+    }
+
+    function updateOrderStatus(orderId, newStatus) {
+        firebaseDb.collection('orders').doc(orderId).update({
+            status: newStatus,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+            console.log("Order status updated successfully");
+            sendPushNotification(orderId, newStatus);
+        }).catch((error) => {
+            console.error("Error updating order status: ", error);
+        });
+    }
+
+    function sendPushNotification(orderId, status) {
+        // Implement push notification logic here
+        console.log(`Sending push notification for order ${orderId}: ${status}`);
+    }
+
+    function calculateEstimatedDeliveryTime(orderId) {
+        // Implement delivery time calculation logic here
+        // This is a placeholder function
+        return new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours from now
+    }
+    document.getElementById('post-product-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const productName = document.getElementById('product-name').value;
+        const productPrice = document.getElementById('product-price').value;
+        const productDescription = document.getElementById('product-description').value;
+
+        firebaseDb.collection('products').add({
+            name: productName,
+            price: parseFloat(productPrice),
+            description: productDescription,
+            shopId: firebaseAuth.currentUser.uid,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+            alert('Product posted successfully!');
+            navigateTo('shop-home');
+        }).catch((error) => {
+            console.error("Error posting product: ", error);
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        navigateTo('home');
+    });
+    function checkout() {
+// Implement your checkout logic here
+console.log('Proceeding to checkout...');
+navigateTo('payment-screen');
+}
+
+function calculateTotalAmount() {
+let total = 0;
+const cartItems = document.querySelectorAll('.cart-item');
+cartItems.forEach(item => {
+  const price = parseFloat(item.querySelector('.price').textContent.replace('$', ''));
+  const quantity = parseInt(item.querySelector('input').value);
+  total += price * quantity;
+});
+return total;
+}
+
+document.querySelector('.checkout').addEventListener('click', checkout);
+
+function createDefaultShop() {
+const defaultShop = {
+  name: "Kedar-Tech",
+  description: "Specializing in iPhones and Apple products",
+  products: [
+      {
+          name: "iPhone 13 Pro",
+          price: 999.99,
+          description: "Latest iPhone model with advanced camera system",
+          image: "https://example.com/iphone13pro.jpg"
+      },
+      {
+          name: "iPhone 12",
+          price: 799.99,
+          description: "Powerful iPhone with 5G capability",
+          image: "https://example.com/iphone12.jpg"
+      },
+      {
+          name: "iPhone SE (2nd generation)",
+          price: 399.99,
+          description: "Compact iPhone with A13 Bionic chip",
+          image: "https://example.com/iphonese.jpg"
+      }
+  ]
+};
+
+firebaseDb.collection('shops').doc('kedar-tech').set(defaultShop)
+  .then(() => {
+      console.log("Default shop created successfully");
+  })
+  .catch((error) => {
+      console.error("Error creating default shop: ", error);
+  });
+}
+
+// Call this function when initializing your app
+createDefaultShop();
+
+function addProduct() {
+const productName = document.getElementById('product-name').value;
+const productPrice = parseFloat(document.getElementById('product-price').value);
+const productDescription = document.getElementById('product-description').value;
+const productImage = document.getElementById('product-image').files[0];
+
+if (!productName || !productPrice || !productDescription || !productImage) {
+  alert("Please fill all fields and select an image");
+  return;
+}
+
+const reader = new FileReader();
+reader.onload = function(e) {
+  const imageDataUrl = e.target.result;
+
+  firebaseDb.collection('shops').doc('kedar-tech').collection('products').add({
+      name: productName,
+      price: productPrice,
+      description: productDescription,
+      image: imageDataUrl,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => {
+      alert('Product added successfully!');
+      clearProductForm();
+  }).catch((error) => {
+      console.error("Error adding product: ", error);
+  });
+};
+reader.readAsDataURL(productImage);
+}
+
+function clearProductForm() {
+document.getElementById('product-name').value = '';
+document.getElementById('product-price').value = '';
+document.getElementById('product-description').value = '';
+document.getElementById('product-image').value = '';
+}
+
+</script>
+
+<script>
+    google.maps.importLibrary("maps");
+    google.maps.importLibrary("marker");
+</script>
+<!-- Shopper Login Screen -->
+<div id="shopper-login-screen" class="w-full h-full bg-white p-4 hidden">
+    <h2 class="text-2xl font-bold mb-4">Shopper Login</h2>
+    <label for="shopper-login-email"></label><input type="email" id="shopper-login-email" placeholder="Email" class="w-full mb-2 p-2 border rounded">
+    <label for="shopper-login-password"></label><input type="password" id="shopper-login-password" placeholder="Password" class="w-full mb-4 p-2 border rounded">
+    <button onclick="login('Shopper')" class="w-full bg-orange-500 text-white py-2 rounded mb-2">Login</button>
+    <p class="text-center">Don't have an account? <a href="#" onclick="navigateTo('signup')" class="text-orange-500">Sign up</a></p>
+</div>
+<!-- Shop Login Screen -->
+<div id="shop-login-screen" class="w-full h-full bg-orange-100 p-4 hidden">
+    <h2 class="text-2xl font-bold mb-4">Shop Login</h2>
+    <label for="shop-login-email"></label><input type="email" id="shop-login-email" placeholder="Email" class="w-full mb-2 p-2 border rounded">
+    <label for="shop-login-password"></label><input type="password" id="shop-login-password" placeholder="Password" class="w-full mb-4 p-2 border rounded">
+    <button onclick="login('Shop')" class="w-full bg-orange-500 text-black py-2 rounded mb-2">Login</button>
+    <p class="text-center">Don't have an account? <a href="#" onclick="navigateTo('signup')" class="text-orange-500">Sign up</a></p>
+</div>
+
+<div class="back-button" onclick="goBack()">
+    <i class="fas fa-arrow-left"></i> Back
+</div>
+
+<!-- Payment Screen -->
+<div id="payment-screen" class="w-full h-full bg-white p-4 hidden">
+    <h2 class="text-2xl font-bold mb-4">Payment</h2>
+    <p>Click the button below to pay with Paynow:</p>
+    <a href='https://www.paynow.co.zw/Payment/BillPaymentLink/?q=aWQ9MTkzMjkmYW1vdW50PTAuMDAmYW1vdW50X3F1YW50aXR5PTAuMDAmbD0w' target='_blank'>
+        <img src='https://www.paynow.co.zw/Content/Buttons/Medium_buttons/button_pay-now_medium.png' style='border:0' alt="Pay with Paynow" />
+    </a>
+    <p class="mt-4">Total amount: <span id="payment-total"></span></p>
+    <button onclick="initiatePayment()" class="w-full bg-orange-500 text-white py-2 rounded mt-4">Confirm Payment</button>
+</div>
+</body>
+</html>

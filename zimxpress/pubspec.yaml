@@ -1,0 +1,61 @@
+name: untitled1
+description: "A new Flutter project."
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+
+environment:
+  sdk: ">=3.0.0 <3.7.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: any
+  flutter_app_icons: any
+  list_tile_switch: any
+  provider: any
+  shared_preferences: any
+  flutter_staggered_grid_view: any
+  badges: any
+  backdrop: any
+  nice_carousel: any
+  flutter_swiper_plus: any
+  cached_network_image: any
+  wave: any
+  image_picker: any
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  google_sign_in: any
+  cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.2
+  firebase_core_web: ^2.18.1
+  uuid: any
+  http: ^1.2.2
+  google_maps_flutter: any
+  flutter_feather_icons: any
+  flutter_vector_icons: any
+  progress_dialog2: any
+  fluttertoast: any
+  flutter_dotenv: any
+  webview_flutter: any
+  encrypt: any
+  carousel_slider: any
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter.
+
+
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+
+  # To add assets to your application, add an assets section, like this:
